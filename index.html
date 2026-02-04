@@ -282,6 +282,92 @@
     justify-content: center;
   }
 
+  /* NF-e List */
+  .nfe-list {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-top: 20px;
+    animation: slideIn 0.3s ease;
+  }
+  .nfe-list.visible { display: block; }
+  .nfe-list h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .nfe-list-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  .nfe-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border-radius: 8px;
+    font-size: 13px;
+    gap: 12px;
+  }
+  .nfe-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+  }
+  .nfe-item-title {
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .nfe-item-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .nfe-item-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--green);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .nfe-item-remove {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .nfe-item-remove:hover {
+    background: var(--red-glow);
+    color: var(--red);
+  }
+
+  /* Multi-options buttons */
+  .multi-options {
+    flex-wrap: wrap;
+  }
+  .multi-options .btn {
+    flex: 1;
+    min-width: 140px;
+  }
+
   /* Footer */
   .footer {
     text-align: center;
@@ -296,6 +382,9 @@
     .header h1 { font-size: 22px; }
     .btn-row { flex-direction: column; }
     .btn-row .btn { width: 100%; }
+    .multi-options .btn { min-width: 100%; }
+    .nfe-item { flex-wrap: wrap; }
+    .nfe-item-value { order: -1; width: 100%; margin-bottom: 4px; }
   }
 </style>
 </head>
@@ -308,10 +397,10 @@
   </div>
 
   <div class="upload-area" id="uploadArea">
-    <input type="file" id="fileInput" accept=".xml">
+    <input type="file" id="fileInput" accept=".xml" multiple>
     <span class="upload-icon">📁</span>
     <p class="upload-text">
-      Arraste o arquivo <strong>.xml</strong> aqui ou <strong>clique para selecionar</strong>
+      Arraste arquivo(s) <strong>.xml</strong> aqui ou <strong>clique para selecionar</strong>
     </p>
   </div>
 
@@ -326,12 +415,22 @@
 
   <div class="status" id="status"></div>
 
+  <div class="nfe-list" id="nfeList">
+    <h3>📋 Notas Fiscais Carregadas</h3>
+    <div class="nfe-list-items" id="nfeListItems"></div>
+  </div>
+
   <div class="info-card" id="infoCard">
-    <h3>✅ Nota Fiscal Identificada</h3>
+    <h3 id="infoCardTitle">✅ Nota Fiscal Identificada</h3>
     <div class="info-grid" id="infoGrid"></div>
-    <div class="btn-row">
+    <div class="btn-row" id="singleBtnRow">
       <button class="btn btn-primary" id="generateBtn">📥 Gerar DANFE em PDF</button>
       <button class="btn btn-secondary" id="resetBtn">↺ Nova Conversão</button>
+    </div>
+    <div class="btn-row multi-options" id="multiBtnRow" style="display:none;">
+      <button class="btn btn-primary" id="generateSinglePdfBtn">📄 PDF Único (todas as páginas)</button>
+      <button class="btn btn-secondary" id="generateMultiplePdfsBtn">📥 PDFs Separados</button>
+      <button class="btn btn-secondary" id="resetBtn2">↺ Nova Conversão</button>
     </div>
   </div>
 
@@ -701,9 +800,13 @@ function generateCode128C(digits) {
 // DANFE PDF GENERATOR - Uses jsPDF to create the official DANFE layout
 // =============================================================================
 
-function generateDANFE(nfe) {
+function generateDANFE(nfe, existingDoc = null, addPageFirst = false) {
   const { jsPDF } = jspdf;
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = existingDoc || new jsPDF({ unit: 'mm', format: 'a4' });
+
+  if (addPageFirst) {
+    doc.addPage();
+  }
 
   const PW = 210, PH = 297, M = 5;
   const CW = PW - 2 * M;   // 200mm content width
@@ -837,9 +940,9 @@ function generateDANFE(nfe) {
       setF(8, 'bold');
       doc.text('N\u00BA ' + formatNNF(nfe.nNF), danfeX + danfeW / 2, y + 31, { align: 'center' });
       setF(7, 'bold');
-      doc.text('S\u00C9RIE ' + (nfe.serie || '1'), danfeX + danfeW / 2, y + 35, { align: 'center' });
+      doc.text('S\u00C9RIE ' + (nfe.serie || '1'), danfeX + danfeW / 2, y + 33.5, { align: 'center' });
       setF(6, 'normal');
-      doc.text('FL ' + currentPage + '/' + totalPages, danfeX + danfeW / 2, y + 38, { align: 'center' });
+      doc.text('FL ' + currentPage + '/' + totalPages, danfeX + danfeW / 2, y + 36, { align: 'center' });
 
       // -- Barcode column --
       const bcX = danfeX + danfeW;
@@ -883,16 +986,6 @@ function generateDANFE(nfe) {
       doc.setTextColor(80);
       doc.text('Consulta em www.nfe.fazenda.gov.br/portal', bcX + bcW / 2, y + 32, { align: 'center' });
       doc.setTextColor(0);
-
-      if (nfe.protocolo && nfe.protocolo.nProt) {
-        setF(5, 'normal');
-        doc.setTextColor(80);
-        doc.text('PROTOCOLO DE AUTORIZA\u00C7\u00C3O', bcX + bcW / 2, y + 35.5, { align: 'center' });
-        doc.setTextColor(0);
-        setF(5.5, 'bold');
-        doc.text(nfe.protocolo.nProt + ' ' + formatDate(nfe.protocolo.dhRecbto) + ' ' + formatTime(nfe.protocolo.dhRecbto),
-          bcX + bcW / 2, y + 38.5, { align: 'center' });
-      }
 
       y += HH;
 
@@ -1168,6 +1261,7 @@ const uploadArea = document.getElementById('uploadArea');
 const fileInput = document.getElementById('fileInput');
 const statusEl = document.getElementById('status');
 const infoCard = document.getElementById('infoCard');
+const infoCardTitle = document.getElementById('infoCardTitle');
 const infoGrid = document.getElementById('infoGrid');
 const generateBtn = document.getElementById('generateBtn');
 const resetBtn = document.getElementById('resetBtn');
@@ -1175,8 +1269,15 @@ const pasteToggleBtn = document.getElementById('pasteToggleBtn');
 const pasteArea = document.getElementById('pasteArea');
 const xmlTextarea = document.getElementById('xmlTextarea');
 const pasteBtn = document.getElementById('pasteBtn');
+const nfeListEl = document.getElementById('nfeList');
+const nfeListItems = document.getElementById('nfeListItems');
+const singleBtnRow = document.getElementById('singleBtnRow');
+const multiBtnRow = document.getElementById('multiBtnRow');
+const generateSinglePdfBtn = document.getElementById('generateSinglePdfBtn');
+const generateMultiplePdfsBtn = document.getElementById('generateMultiplePdfsBtn');
+const resetBtn2 = document.getElementById('resetBtn2');
 
-let currentNFe = null;
+let nfeList = [];
 
 function showStatus(msg, type) {
   statusEl.innerHTML = (type === 'error' ? '⚠️ ' : '✅ ') + msg;
@@ -1213,53 +1314,172 @@ function showInfo(nfe) {
   infoCard.classList.add('visible');
 }
 
-function processXML(xmlString) {
+function processXML(xmlString, fileName = 'colado.xml') {
   try {
-    currentNFe = parseNFe(xmlString);
+    const nfe = parseNFe(xmlString);
+    nfe._fileName = fileName;
+    nfeList.push(nfe);
     showStatus('XML processado com sucesso!', 'success');
-    showInfo(currentNFe);
+    updateNFeListUI();
     uploadArea.style.display = 'none';
     pasteArea.classList.remove('visible');
     document.querySelector('.paste-toggle').style.display = 'none';
   } catch (err) {
     showStatus('Erro ao processar XML: ' + err.message, 'error');
-    infoCard.classList.remove('visible');
-    currentNFe = null;
   }
 }
 
-function handleFile(file) {
-  if (!file) return;
-  if (!file.name.toLowerCase().endsWith('.xml')) {
-    showStatus('Por favor, selecione um arquivo XML v\u00E1lido.', 'error');
+function handleFiles(files) {
+  if (!files || files.length === 0) return;
+
+  const xmlFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.xml'));
+  if (xmlFiles.length === 0) {
+    showStatus('Por favor, selecione arquivo(s) XML v\u00E1lido(s).', 'error');
     return;
   }
-  const reader = new FileReader();
-  reader.onload = e => processXML(e.target.result);
-  reader.onerror = () => showStatus('Erro ao ler o arquivo.', 'error');
-  reader.readAsText(file);
+
+  let processed = 0;
+  let errors = 0;
+
+  xmlFiles.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const nfe = parseNFe(e.target.result);
+        nfe._fileName = file.name;
+        nfeList.push(nfe);
+      } catch (err) {
+        errors++;
+        console.error('Erro ao processar ' + file.name + ':', err);
+      }
+      processed++;
+
+      if (processed === xmlFiles.length) {
+        if (nfeList.length > 0) {
+          const msg = nfeList.length + ' nota(s) carregada(s)' + (errors > 0 ? ' (' + errors + ' erro(s))' : '');
+          showStatus(msg, errors > 0 ? 'error' : 'success');
+          updateNFeListUI();
+          uploadArea.style.display = 'none';
+          pasteArea.classList.remove('visible');
+          document.querySelector('.paste-toggle').style.display = 'none';
+        } else {
+          showStatus('Nenhum XML v\u00E1lido encontrado.', 'error');
+        }
+      }
+    };
+    reader.onerror = () => {
+      errors++;
+      processed++;
+    };
+    reader.readAsText(file);
+  });
+}
+
+function updateNFeListUI() {
+  if (nfeList.length === 0) {
+    nfeListEl.classList.remove('visible');
+    infoCard.classList.remove('visible');
+    return;
+  }
+
+  nfeListItems.innerHTML = '';
+  nfeList.forEach((nfe, idx) => {
+    const item = document.createElement('div');
+    item.className = 'nfe-item';
+    item.innerHTML =
+      '<div class="nfe-item-info">' +
+        '<span class="nfe-item-title">NF-e ' + formatNNF(nfe.nNF) + ' - S\u00E9rie ' + (nfe.serie || '1') + '</span>' +
+        '<span class="nfe-item-sub">' + (nfe.emit.xNome || 'Emitente n\u00E3o informado') + '</span>' +
+      '</div>' +
+      '<span class="nfe-item-value">R$ ' + fmtNumZ(nfe.totais.vNF) + '</span>' +
+      '<button class="nfe-item-remove" data-idx="' + idx + '" title="Remover">\u2715</button>';
+    nfeListItems.appendChild(item);
+  });
+
+  // Event listeners para remocao
+  nfeListItems.querySelectorAll('.nfe-item-remove').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const idx = parseInt(e.target.dataset.idx);
+      nfeList.splice(idx, 1);
+      updateNFeListUI();
+      if (nfeList.length === 0) {
+        resetUI();
+      }
+    });
+  });
+
+  nfeListEl.classList.add('visible');
+  updateInfoCard();
+  updateButtonsVisibility();
+}
+
+function updateInfoCard() {
+  infoGrid.innerHTML = '';
+
+  if (nfeList.length === 1) {
+    infoCardTitle.textContent = '\u2705 Nota Fiscal Identificada';
+    showInfo(nfeList[0]);
+    return;
+  }
+
+  infoCardTitle.textContent = '\u2705 ' + nfeList.length + ' Notas Fiscais Carregadas';
+
+  const totalValue = nfeList.reduce((sum, nfe) => sum + parseFloat(nfe.totais.vNF || 0), 0);
+  const totalItems = nfeList.reduce((sum, nfe) => sum + nfe.produtos.length, 0);
+
+  const items = [
+    ['Notas Carregadas', nfeList.length + ' NF-e(s)', false],
+    ['Total de Itens', totalItems + ' produto(s)', false],
+    ['Valor Total', 'R$ ' + fmtNumZ(totalValue), false, false, true],
+  ];
+
+  items.forEach(([label, value, mono, fullWidth, highlight]) => {
+    const div = document.createElement('div');
+    div.className = 'info-item' + (fullWidth ? ' full-width' : '');
+    const spanClass = mono ? ' class="mono"' : (highlight ? ' class="highlight"' : '');
+    div.innerHTML = '<label>' + label + '</label><span' + spanClass + '>' + value + '</span>';
+    infoGrid.appendChild(div);
+  });
+
+  infoCard.classList.add('visible');
+}
+
+function updateButtonsVisibility() {
+  if (nfeList.length === 0) {
+    singleBtnRow.style.display = 'none';
+    multiBtnRow.style.display = 'none';
+  } else if (nfeList.length === 1) {
+    singleBtnRow.style.display = 'flex';
+    multiBtnRow.style.display = 'none';
+  } else {
+    singleBtnRow.style.display = 'none';
+    multiBtnRow.style.display = 'flex';
+  }
 }
 
 function resetUI() {
-  currentNFe = null;
+  nfeList = [];
   infoCard.classList.remove('visible');
+  nfeListEl.classList.remove('visible');
   hideStatus();
   uploadArea.style.display = '';
   document.querySelector('.paste-toggle').style.display = '';
   fileInput.value = '';
   xmlTextarea.value = '';
+  singleBtnRow.style.display = 'none';
+  multiBtnRow.style.display = 'none';
 }
 
 // Event listeners
 uploadArea.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+fileInput.addEventListener('change', e => { if (e.target.files.length) handleFiles(e.target.files); });
 
 uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
 uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
 uploadArea.addEventListener('drop', e => {
   e.preventDefault();
   uploadArea.classList.remove('dragover');
-  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
 });
 
 pasteToggleBtn.addEventListener('click', () => {
@@ -1277,18 +1497,19 @@ pasteBtn.addEventListener('click', () => {
 });
 
 generateBtn.addEventListener('click', () => {
-  if (!currentNFe) {
+  if (nfeList.length === 0) {
     showStatus('Nenhum XML carregado.', 'error');
     return;
   }
+  const nfe = nfeList[0];
   try {
     generateBtn.disabled = true;
     generateBtn.innerHTML = '\u23F3 Gerando PDF...';
 
     setTimeout(() => {
       try {
-        const doc = generateDANFE(currentNFe);
-        const nf = (currentNFe.nNF || '').padStart(9, '0');
+        const doc = generateDANFE(nfe);
+        const nf = (nfe.nNF || '').padStart(9, '0');
         doc.save('DANFE_' + nf + '.pdf');
         showStatus('DANFE gerado com sucesso! Verifique seus downloads.', 'success');
       } catch (err) {
@@ -1306,7 +1527,87 @@ generateBtn.addEventListener('click', () => {
   }
 });
 
+// Generate single PDF with all notes
+generateSinglePdfBtn.addEventListener('click', () => {
+  if (nfeList.length === 0) {
+    showStatus('Nenhum XML carregado.', 'error');
+    return;
+  }
+  try {
+    generateSinglePdfBtn.disabled = true;
+    generateSinglePdfBtn.innerHTML = '\u23F3 Gerando PDF...';
+
+    setTimeout(() => {
+      try {
+        const { jsPDF } = jspdf;
+        const masterDoc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+        nfeList.forEach((nfe, idx) => {
+          generateDANFE(nfe, masterDoc, idx > 0);
+        });
+
+        const timestamp = new Date().toISOString().slice(0, 10);
+        masterDoc.save('DANFE_multiplas_' + timestamp + '.pdf');
+        showStatus('PDF \u00FAnico gerado com ' + nfeList.length + ' DANFE(s)!', 'success');
+      } catch (err) {
+        showStatus('Erro ao gerar PDF: ' + err.message, 'error');
+        console.error(err);
+      } finally {
+        generateSinglePdfBtn.disabled = false;
+        generateSinglePdfBtn.innerHTML = '\uD83D\uDCC4 PDF \u00DAnico (todas as p\u00E1ginas)';
+      }
+    }, 50);
+  } catch (err) {
+    showStatus('Erro inesperado: ' + err.message, 'error');
+    generateSinglePdfBtn.disabled = false;
+    generateSinglePdfBtn.innerHTML = '\uD83D\uDCC4 PDF \u00DAnico (todas as p\u00E1ginas)';
+  }
+});
+
+// Generate multiple PDFs
+generateMultiplePdfsBtn.addEventListener('click', () => {
+  if (nfeList.length === 0) {
+    showStatus('Nenhum XML carregado.', 'error');
+    return;
+  }
+  try {
+    generateMultiplePdfsBtn.disabled = true;
+    generateMultiplePdfsBtn.innerHTML = '\u23F3 Gerando PDFs...';
+
+    let downloaded = 0;
+    const downloadNext = () => {
+      if (downloaded >= nfeList.length) {
+        showStatus(nfeList.length + ' DANFE(s) gerado(s) com sucesso!', 'success');
+        generateMultiplePdfsBtn.disabled = false;
+        generateMultiplePdfsBtn.innerHTML = '\uD83D\uDCE5 PDFs Separados';
+        return;
+      }
+
+      const nfe = nfeList[downloaded];
+      try {
+        const doc = generateDANFE(nfe);
+        const nf = (nfe.nNF || '').padStart(9, '0');
+        const serie = nfe.serie || '1';
+        doc.save('DANFE_' + nf + '_serie' + serie + '.pdf');
+        downloaded++;
+        setTimeout(downloadNext, 200); // Small delay between downloads
+      } catch (err) {
+        console.error('Erro ao gerar PDF para NF-e ' + nfe.nNF + ':', err);
+        downloaded++;
+        setTimeout(downloadNext, 200);
+      }
+    };
+
+    setTimeout(downloadNext, 50);
+  } catch (err) {
+    showStatus('Erro inesperado: ' + err.message, 'error');
+    generateMultiplePdfsBtn.disabled = false;
+    generateMultiplePdfsBtn.innerHTML = '\uD83D\uDCE5 PDFs Separados';
+  }
+});
+
 resetBtn.addEventListener('click', resetUI);
+resetBtn2.addEventListener('click', resetUI);
 </script>
 </body>
 </html>
