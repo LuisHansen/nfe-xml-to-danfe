@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conversor NF-e XML → DANFE PDF</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232736;
+    --border: #2e3345;
+    --text: #e2e4ed;
+    --text-muted: #8b90a5;
+    --accent: #4f7df9;
+    --accent-glow: rgba(79, 125, 249, 0.15);
+    --green: #34d399;
+    --green-glow: rgba(52, 211, 153, 0.12);
+    --red: #f87171;
+    --red-glow: rgba(248, 113, 113, 0.12);
+    --yellow: #fbbf24;
+    --radius: 12px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 40px 20px 60px;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  .header .icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px; height: 56px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--accent), #7c5df9);
+    margin-bottom: 16px;
+    font-size: 24px;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+  .header h1 span { color: var(--accent); }
+  .header p {
+    color: var(--text-muted);
+    font-size: 15px;
+  }
+
+  /* Upload Area */
+  .upload-area {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 48px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+  }
+  .upload-area::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, var(--accent-glow), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .upload-area:hover, .upload-area.dragover {
+    border-color: var(--accent);
+    background: var(--surface2);
+  }
+  .upload-area:hover::before, .upload-area.dragover::before {
+    opacity: 1;
+  }
+  .upload-area .upload-icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+    display: block;
+  }
+  .upload-area .upload-text {
+    font-size: 15px;
+    color: var(--text-muted);
+    position: relative;
+  }
+  .upload-area .upload-text strong {
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .upload-area input { display: none; }
+
+  /* Paste toggle */
+  .paste-toggle {
+    text-align: center;
+    margin-top: 14px;
+  }
+  .paste-toggle button {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 6px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .paste-toggle button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* Paste Area */
+  .paste-area {
+    display: none;
+    margin-top: 14px;
+  }
+  .paste-area.visible { display: block; }
+  .paste-area textarea {
+    width: 100%;
+    height: 160px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 16px;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .paste-area textarea:focus {
+    border-color: var(--accent);
+  }
+  .paste-area .paste-btn {
+    margin-top: 10px;
+    width: 100%;
+  }
+
+  /* Status */
+  .status {
+    display: none;
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 500;
+    animation: slideIn 0.25s ease;
+  }
+  .status.visible { display: flex; align-items: center; gap: 8px; }
+  .status.error {
+    background: var(--red-glow);
+    border: 1px solid rgba(248,113,113,0.2);
+    color: var(--red);
+  }
+  .status.success {
+    background: var(--green-glow);
+    border: 1px solid rgba(52,211,153,0.2);
+    color: var(--green);
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Info Card */
+  .info-card {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-top: 20px;
+    animation: slideIn 0.3s ease;
+  }
+  .info-card.visible { display: block; }
+  .info-card h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .info-grid .full-width {
+    grid-column: 1 / -1;
+  }
+  .info-item label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+    font-weight: 500;
+  }
+  .info-item span {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .info-item span.mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.5px;
+  }
+  .info-item span.highlight {
+    color: var(--green);
+    font-size: 18px;
+  }
+
+  /* Button */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 28px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+    color: white;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #7c5df9);
+    box-shadow: 0 4px 20px var(--accent-glow);
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 28px rgba(79, 125, 249, 0.3);
+  }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-secondary {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    justify-content: center;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    margin-top: 40px;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  @media (max-width: 600px) {
+    .info-grid { grid-template-columns: 1fr; }
+    .container { padding: 20px 12px 40px; }
+    .header h1 { font-size: 22px; }
+    .btn-row { flex-direction: column; }
+    .btn-row .btn { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="icon">📄</div>
+    <h1>NF-e → <span>DANFE</span></h1>
+    <p>Conversor de XML da Nota Fiscal Eletrônica para DANFE em PDF — 100% no navegador</p>
+  </div>
+
+  <div class="upload-area" id="uploadArea">
+    <input type="file" id="fileInput" accept=".xml">
+    <span class="upload-icon">📁</span>
+    <p class="upload-text">
+      Arraste o arquivo <strong>.xml</strong> aqui ou <strong>clique para selecionar</strong>
+    </p>
+  </div>
+
+  <div class="paste-toggle">
+    <button id="pasteToggleBtn">ou cole o conteúdo XML</button>
+  </div>
+
+  <div class="paste-area" id="pasteArea">
+    <textarea id="xmlTextarea" placeholder="Cole o conteúdo XML da NF-e aqui..."></textarea>
+    <button class="btn btn-secondary paste-btn" id="pasteBtn">Processar XML colado</button>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <div class="info-card" id="infoCard">
+    <h3>✅ Nota Fiscal Identificada</h3>
+    <div class="info-grid" id="infoGrid"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="generateBtn">📥 Gerar DANFE em PDF</button>
+      <button class="btn btn-secondary" id="resetBtn">↺ Nova Conversão</button>
+    </div>
+  </div>
+
+  <div class="footer">
+    Processamento 100% local — nenhum dado é enviado para servidores.
+  </div>
+</div>
+
+<script>
+// =============================================================================
+// UTILITIES - Formatting functions for Brazilian documents
+// =============================================================================
+
+function formatCNPJ(v) {
+  if (!v) return '';
+  v = v.replace(/\D/g, '').padStart(14, '0');
+  return v.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+}
+
+function formatCPF(v) {
+  if (!v) return '';
+  v = v.replace(/\D/g, '').padStart(11, '0');
+  return v.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+}
+
+function formatCEP(v) {
+  if (!v) return '';
+  v = v.replace(/\D/g, '');
+  if (v.length < 8) return v;
+  return v.replace(/(\d{5})(\d{3})/, '$1-$2');
+}
+
+function formatPhone(v) {
+  if (!v) return '';
+  v = v.replace(/\D/g, '');
+  if (v.length === 11) return v.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+  if (v.length === 10) return v.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+  return v;
+}
+
+function formatAccessKey(v) {
+  if (!v) return '';
+  v = v.replace(/\D/g, '');
+  return v.replace(/(.{4})/g, '$1 ').trim();
+}
+
+function fmtNum(v, dec = 2) {
+  if (v === '' || v === null || v === undefined) return '';
+  const num = parseFloat(v);
+  if (isNaN(num)) return '';
+  return num.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
+function fmtNumZ(v, dec = 2) {
+  // Format number, returning '0,00' for empty/null
+  if (v === '' || v === null || v === undefined) return (0).toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  const num = parseFloat(v);
+  if (isNaN(num)) return (0).toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  return num.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
+function formatDate(v) {
+  if (!v) return '';
+  try {
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return v.substring(0, 10).split('-').reverse().join('/');
+    return d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  } catch { return v; }
+}
+
+function formatTime(v) {
+  if (!v) return '';
+  try {
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+  } catch { return ''; }
+}
+
+function formatNNF(v) {
+  if (!v) return '';
+  return v.padStart(9, '0').replace(/(\d{3})(\d{3})(\d{3})/, '$1.$2.$3');
+}
+
+// =============================================================================
+// XML PARSER - Parse NF-e XML into structured object
+// =============================================================================
+
+function getText(parent, tag) {
+  if (!parent) return '';
+  let el = parent.getElementsByTagName(tag)[0];
+  if (!el) {
+    // Try common NF-e namespace
+    el = parent.getElementsByTagNameNS('http://www.portalfiscal.inf.br/nfe', tag)[0];
+  }
+  return el ? el.textContent.trim() : '';
+}
+
+function getEl(parent, tag) {
+  if (!parent) return null;
+  let el = parent.getElementsByTagName(tag)[0];
+  if (!el) el = parent.getElementsByTagNameNS('http://www.portalfiscal.inf.br/nfe', tag)[0];
+  return el || null;
+}
+
+function getEls(parent, tag) {
+  if (!parent) return [];
+  let els = parent.getElementsByTagName(tag);
+  if (els.length === 0) els = parent.getElementsByTagNameNS('http://www.portalfiscal.inf.br/nfe', tag);
+  return Array.from(els);
+}
+
+function parseNFe(xmlString) {
+  const parser = new DOMParser();
+  const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
+
+  const parseError = xmlDoc.querySelector('parsererror');
+  if (parseError) throw new Error('XML inválido: erro de parsing');
+
+  const nfe = getEl(xmlDoc, 'NFe') || xmlDoc;
+  const infNFe = getEl(nfe, 'infNFe');
+  if (!infNFe) throw new Error('Elemento <infNFe> não encontrado. Verifique se o arquivo é um XML de NF-e válido.');
+
+  const id = infNFe.getAttribute('Id') || '';
+  const chaveAcesso = id.replace(/^NFe/, '');
+
+  const ide = getEl(infNFe, 'ide');
+  const emit = getEl(infNFe, 'emit');
+  const emitEnder = getEl(emit, 'enderEmit');
+  const dest = getEl(infNFe, 'dest');
+  const destEnder = dest ? getEl(dest, 'enderDest') : null;
+
+  // Products
+  const dets = getEls(infNFe, 'det');
+  const produtos = dets.map(det => {
+    const prod = getEl(det, 'prod');
+    const imposto = getEl(det, 'imposto');
+    const icmsGroup = imposto ? getEl(imposto, 'ICMS') : null;
+    const icmsEl = icmsGroup && icmsGroup.children.length > 0 ? icmsGroup.children[0] : null;
+    const ipiGroup = imposto ? getEl(imposto, 'IPI') : null;
+    const ipiEl = ipiGroup ? (getEl(ipiGroup, 'IPITrib') || getEl(ipiGroup, 'IPINT') || getEl(ipiGroup, 'IPIAliq')) : null;
+
+    return {
+      nItem: det.getAttribute('nItem') || '',
+      cProd: getText(prod, 'cProd'),
+      xProd: getText(prod, 'xProd'),
+      NCM: getText(prod, 'NCM'),
+      CFOP: getText(prod, 'CFOP'),
+      uCom: getText(prod, 'uCom'),
+      qCom: getText(prod, 'qCom'),
+      vUnCom: getText(prod, 'vUnCom'),
+      vProd: getText(prod, 'vProd'),
+      cEAN: getText(prod, 'cEAN'),
+      orig: icmsEl ? getText(icmsEl, 'orig') : '',
+      CST: icmsEl ? (getText(icmsEl, 'CST') || getText(icmsEl, 'CSOSN')) : '',
+      vBC: icmsEl ? getText(icmsEl, 'vBC') : '',
+      pICMS: icmsEl ? getText(icmsEl, 'pICMS') : '',
+      vICMS: icmsEl ? getText(icmsEl, 'vICMS') : '',
+      pIPI: ipiEl ? getText(ipiEl, 'pIPI') : '',
+      vIPI: ipiEl ? getText(ipiEl, 'vIPI') : '',
+    };
+  });
+
+  // Totals
+  const total = getEl(infNFe, 'total');
+  const icmsTot = getEl(total, 'ICMSTot');
+
+  // Transport
+  const transp = getEl(infNFe, 'transp');
+  const transporta = transp ? getEl(transp, 'transporta') : null;
+  const veicTransp = transp ? getEl(transp, 'veicTransp') : null;
+  // Get first vol element
+  const volEls = transp ? getEls(transp, 'vol') : [];
+  const vol = volEls.length > 0 ? volEls[0] : null;
+
+  // Additional info
+  const infAdic = getEl(infNFe, 'infAdic');
+
+  // Protocol
+  const protNFe = getEl(xmlDoc, 'protNFe');
+  const infProt = protNFe ? getEl(protNFe, 'infProt') : null;
+
+  // Cobr / Fat
+  const cobr = getEl(infNFe, 'cobr');
+  const fat = cobr ? getEl(cobr, 'fat') : null;
+  const dups = cobr ? getEls(cobr, 'dup') : [];
+
+  return {
+    chaveAcesso,
+    cUF: getText(ide, 'cUF'),
+    natOp: getText(ide, 'natOp'),
+    serie: getText(ide, 'serie'),
+    nNF: getText(ide, 'nNF'),
+    dhEmi: getText(ide, 'dhEmi'),
+    dhSaiEnt: getText(ide, 'dhSaiEnt'),
+    tpNF: getText(ide, 'tpNF'),
+    tpEmis: getText(ide, 'tpEmis'),
+
+    emit: {
+      CNPJ: getText(emit, 'CNPJ'),
+      CPF: getText(emit, 'CPF'),
+      xNome: getText(emit, 'xNome'),
+      xFant: getText(emit, 'xFant'),
+      IE: getText(emit, 'IE'),
+      IEST: getText(emit, 'IEST'),
+      CRT: getText(emit, 'CRT'),
+      ender: {
+        xLgr: getText(emitEnder, 'xLgr'),
+        nro: getText(emitEnder, 'nro'),
+        xCpl: getText(emitEnder, 'xCpl'),
+        xBairro: getText(emitEnder, 'xBairro'),
+        xMun: getText(emitEnder, 'xMun'),
+        UF: getText(emitEnder, 'UF'),
+        CEP: getText(emitEnder, 'CEP'),
+        fone: getText(emitEnder, 'fone'),
+      }
+    },
+
+    dest: {
+      CNPJ: getText(dest, 'CNPJ'),
+      CPF: getText(dest, 'CPF'),
+      xNome: getText(dest, 'xNome'),
+      IE: getText(dest, 'IE'),
+      ender: destEnder ? {
+        xLgr: getText(destEnder, 'xLgr'),
+        nro: getText(destEnder, 'nro'),
+        xCpl: getText(destEnder, 'xCpl'),
+        xBairro: getText(destEnder, 'xBairro'),
+        xMun: getText(destEnder, 'xMun'),
+        UF: getText(destEnder, 'UF'),
+        CEP: getText(destEnder, 'CEP'),
+        fone: getText(destEnder, 'fone'),
+      } : {}
+    },
+
+    produtos,
+
+    totais: {
+      vBC: getText(icmsTot, 'vBC'),
+      vICMS: getText(icmsTot, 'vICMS'),
+      vBCST: getText(icmsTot, 'vBCST'),
+      vST: getText(icmsTot, 'vST'),
+      vProd: getText(icmsTot, 'vProd'),
+      vFrete: getText(icmsTot, 'vFrete'),
+      vSeg: getText(icmsTot, 'vSeg'),
+      vDesc: getText(icmsTot, 'vDesc'),
+      vII: getText(icmsTot, 'vII'),
+      vIPI: getText(icmsTot, 'vIPI'),
+      vPIS: getText(icmsTot, 'vPIS'),
+      vCOFINS: getText(icmsTot, 'vCOFINS'),
+      vOutro: getText(icmsTot, 'vOutro'),
+      vNF: getText(icmsTot, 'vNF'),
+      vTotTrib: getText(icmsTot, 'vTotTrib'),
+    },
+
+    transp: {
+      modFrete: transp ? getText(transp, 'modFrete') : '',
+      transporta: transporta ? {
+        CNPJ: getText(transporta, 'CNPJ'),
+        CPF: getText(transporta, 'CPF'),
+        xNome: getText(transporta, 'xNome'),
+        IE: getText(transporta, 'IE'),
+        xEnder: getText(transporta, 'xEnder'),
+        xMun: getText(transporta, 'xMun'),
+        UF: getText(transporta, 'UF'),
+      } : {},
+      veicTransp: veicTransp ? {
+        placa: getText(veicTransp, 'placa'),
+        UF: getText(veicTransp, 'UF'),
+        RNTC: getText(veicTransp, 'RNTC'),
+      } : {},
+      vol: vol ? {
+        qVol: getText(vol, 'qVol'),
+        esp: getText(vol, 'esp'),
+        marca: getText(vol, 'marca'),
+        nVol: getText(vol, 'nVol'),
+        pesoL: getText(vol, 'pesoL'),
+        pesoB: getText(vol, 'pesoB'),
+      } : {}
+    },
+
+    fatura: fat ? {
+      nFat: getText(fat, 'nFat'),
+      vOrig: getText(fat, 'vOrig'),
+      vDesc: getText(fat, 'vDesc'),
+      vLiq: getText(fat, 'vLiq'),
+    } : null,
+
+    duplicatas: dups.map(dup => ({
+      nDup: getText(dup, 'nDup'),
+      dVenc: getText(dup, 'dVenc'),
+      vDup: getText(dup, 'vDup'),
+    })),
+
+    infCpl: getText(infAdic, 'infCpl'),
+    infAdFisco: getText(infAdic, 'infAdFisco'),
+
+    protocolo: infProt ? {
+      nProt: getText(infProt, 'nProt'),
+      dhRecbto: getText(infProt, 'dhRecbto'),
+      cStat: getText(infProt, 'cStat'),
+      xMotivo: getText(infProt, 'xMotivo'),
+    } : null
+  };
+}
+
+// =============================================================================
+// CODE 128C BARCODE GENERATOR
+// =============================================================================
+
+const CODE128_PATTERNS = [
+  '11011001100','11001101100','11001100110','10010011000','10010001100',
+  '10001001100','10011001000','10011000100','10001100100','11001001000',
+  '11001000100','11000100100','10110011100','10011011100','10011001110',
+  '10111001100','10011101100','10011100110','11001110010','11001011100',
+  '11001001110','11011100100','11001110100','11101101110','11101001100',
+  '11100101100','11100100110','11101100100','11100110100','11100110010',
+  '11011011000','11011000110','11000110110','10100011000','10001011000',
+  '10001000110','10110001000','10001101000','10001100010','11010001000',
+  '11000101000','11000100010','10110111000','10110001110','10001101110',
+  '10111011000','10111000110','10001110110','11101110110','11010001110',
+  '11000101110','11011101000','11011100010','11011101110','11101011000',
+  '11101000110','11100010110','11101101000','11101100010','11100011010',
+  '11101111010','11001000010','11110001010','10100110000','10100001100',
+  '10010110000','10010000110','10000101100','10000100110','10110010000',
+  '10110000100','10011010000','10011000010','10000110100','10000110010',
+  '11000010010','11001010000','11110111010','11000010100','10001111010',
+  '10100111100','10010111100','10010011110','10111100100','10011110100',
+  '10011110010','11110100100','11110010100','11110010010','11011011110',
+  '11011110110','11110110110','10101111000','10100011110','10001011110',
+  '10111101000','10111100010','11110101000','11110100010','10111011110',
+  '10111101110','11101011110','11110101110','11010000100','11010010000',
+  '11010011100'
+];
+const CODE128_STOP = '1100011101011';
+
+function generateCode128C(digits) {
+  if (!digits || digits.length === 0) return '';
+  const d = digits.replace(/\D/g, '');
+  if (d.length === 0 || d.length % 2 !== 0) return '';
+
+  const values = [105]; // Start C
+  for (let i = 0; i < d.length; i += 2) {
+    values.push(parseInt(d.substring(i, i + 2), 10));
+  }
+
+  // Checksum
+  let checksum = values[0];
+  for (let i = 1; i < values.length; i++) {
+    checksum += i * values[i];
+  }
+  values.push(checksum % 103);
+
+  let binary = '';
+  for (const v of values) {
+    if (v >= 0 && v < CODE128_PATTERNS.length) {
+      binary += CODE128_PATTERNS[v];
+    }
+  }
+  binary += CODE128_STOP;
+
+  // Quiet zones
+  return '00000000000' + binary + '00000000000';
+}
+
+// =============================================================================
+// DANFE PDF GENERATOR - Uses jsPDF to create the official DANFE layout
+// =============================================================================
+
+function generateDANFE(nfe) {
+  const { jsPDF } = jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+  const PW = 210, PH = 297, M = 5;
+  const CW = PW - 2 * M;   // 200mm content width
+  const X0 = M, XE = PW - M;
+
+  // ---- Helpers ----
+  const setF = (size, style) => { doc.setFont('helvetica', style || 'normal'); doc.setFontSize(size); };
+
+  function labeledBox(x, y, w, h, label, value, opts = {}) {
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.2);
+    doc.rect(x, y, w, h);
+    // Label
+    setF(5, 'normal');
+    doc.setTextColor(100);
+    doc.text(label || '', x + 0.8, y + 3.2);
+    // Value
+    setF(opts.fs || 7.5, opts.bold ? 'bold' : 'normal');
+    doc.setTextColor(0);
+    const vy = y + h - 1.5;
+    const val = (value || '').toString();
+    if (opts.align === 'right') {
+      doc.text(val, x + w - 1, vy, { align: 'right' });
+    } else if (opts.align === 'center') {
+      doc.text(val, x + w / 2, vy, { align: 'center' });
+    } else {
+      // Truncate if too wide
+      const maxW = w - 2;
+      let t = val;
+      if (doc.getTextWidth(t) > maxW) {
+        while (t.length > 1 && doc.getTextWidth(t + '\u2026') > maxW) t = t.slice(0, -1);
+        t += '\u2026';
+      }
+      doc.text(t, x + 0.8, vy);
+    }
+  }
+
+  function sectionLabel(x, y, w, text) {
+    doc.setFillColor(235, 235, 235);
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.2);
+    doc.rect(x, y, w, 4, 'FD');
+    setF(5.5, 'bold');
+    doc.setTextColor(0);
+    doc.text(text, x + 1, y + 3);
+    return y + 4;
+  }
+
+  // ---- Calculate pages needed ----
+  const ADDI_H = 25;
+  const FIXED_TOP = 38 + 10 + 10 + 28 + 20 + 28; // header, nature, emit, dest, tax, transp = ~134
+  const PROD_HEADER_H = 5.5;
+  const PROD_ROW_H = 3.3;
+  const availFirstPage = PH - M - FIXED_TOP - M - ADDI_H - PROD_HEADER_H - 4; // ~120mm for product rows on page 1
+  const maxRowsPage1 = Math.floor(availFirstPage / PROD_ROW_H);
+  const availNextPage = PH - M - 15 - M - ADDI_H - PROD_HEADER_H;
+  const maxRowsPageN = Math.floor(availNextPage / PROD_ROW_H);
+
+  const totalProducts = nfe.produtos.length;
+  let totalPages = 1;
+  if (totalProducts > maxRowsPage1) {
+    totalPages = 1 + Math.ceil((totalProducts - maxRowsPage1) / maxRowsPageN);
+  }
+
+  // ---- Draw a full page ----
+  let currentPage = 1;
+  let prodIdx = 0;
+
+  function drawPage() {
+    let y = M;
+
+    if (currentPage === 1) {
+      // ======= HEADER (h=38) =======
+      const HH = 38;
+      doc.setLineWidth(0.3);
+      doc.setDrawColor(0);
+      doc.rect(X0, y, CW, HH);
+      doc.setLineWidth(0.2);
+
+      // -- Emitter column --
+      const emitW = 78;
+      doc.line(X0 + emitW, y, X0 + emitW, y + HH);
+
+      setF(9, 'bold');
+      const emitName = nfe.emit.xNome || '';
+      doc.text(emitName, X0 + emitW / 2, y + 8, { align: 'center', maxWidth: emitW - 4 });
+
+      if (nfe.emit.xFant) {
+        setF(7, 'normal');
+        doc.text(nfe.emit.xFant, X0 + emitW / 2, y + 12.5, { align: 'center', maxWidth: emitW - 4 });
+      }
+
+      const addrLines = [
+        [nfe.emit.ender.xLgr, nfe.emit.ender.nro].filter(Boolean).join(', '),
+        nfe.emit.ender.xCpl || '',
+        [nfe.emit.ender.xBairro, nfe.emit.ender.xMun, nfe.emit.ender.UF].filter(Boolean).join(' - '),
+        nfe.emit.ender.CEP ? 'CEP: ' + formatCEP(nfe.emit.ender.CEP) : '',
+        nfe.emit.ender.fone ? 'Tel: ' + formatPhone(nfe.emit.ender.fone) : '',
+      ].filter(s => s.length > 0);
+
+      setF(5.5, 'normal');
+      let ay = nfe.emit.xFant ? y + 16 : y + 13;
+      addrLines.forEach(line => {
+        doc.text(line, X0 + emitW / 2, ay, { align: 'center', maxWidth: emitW - 4 });
+        ay += 3.2;
+      });
+
+      // -- DANFE column --
+      const danfeX = X0 + emitW;
+      const danfeW = 52;
+      doc.line(danfeX + danfeW, y, danfeX + danfeW, y + HH);
+
+      setF(14, 'bold');
+      doc.text('DANFE', danfeX + danfeW / 2, y + 7.5, { align: 'center' });
+      setF(5.5, 'normal');
+      doc.text('DOCUMENTO AUXILIAR DA', danfeX + danfeW / 2, y + 11, { align: 'center' });
+      doc.text('NOTA FISCAL ELETR\u00D4NICA', danfeX + danfeW / 2, y + 14, { align: 'center' });
+
+      // Entry/Exit
+      const tpNF = nfe.tpNF || '1';
+      setF(7, 'bold');
+      doc.text(tpNF === '0' ? '0 - ENTRADA' : '1 - SA\u00CDDA', danfeX + danfeW / 2, y + 19, { align: 'center' });
+
+      // Number box
+      doc.setLineWidth(0.3);
+      doc.rect(danfeX + danfeW / 2 - 4, y + 20.5, 8, 6);
+      setF(12, 'bold');
+      doc.text(tpNF, danfeX + danfeW / 2, y + 25.5, { align: 'center' });
+      doc.setLineWidth(0.2);
+
+      setF(8, 'bold');
+      doc.text('N\u00BA ' + formatNNF(nfe.nNF), danfeX + danfeW / 2, y + 31, { align: 'center' });
+      setF(7, 'bold');
+      doc.text('S\u00C9RIE ' + (nfe.serie || '1'), danfeX + danfeW / 2, y + 35, { align: 'center' });
+      setF(6, 'normal');
+      doc.text('FL ' + currentPage + '/' + totalPages, danfeX + danfeW / 2, y + 38, { align: 'center' });
+
+      // -- Barcode column --
+      const bcX = danfeX + danfeW;
+      const bcW = CW - emitW - danfeW; // 70mm
+
+      if (nfe.chaveAcesso) {
+        const binary = generateCode128C(nfe.chaveAcesso);
+        if (binary) {
+          const bm = 3;
+          const baw = bcW - 2 * bm;
+          const mw = baw / binary.length;
+          const bh = 14;
+          const by = y + 3;
+
+          doc.setFillColor(0);
+          for (let i = 0; i < binary.length; i++) {
+            if (binary[i] === '1') {
+              doc.rect(bcX + bm + i * mw, by, mw + 0.05, bh, 'F');
+            }
+          }
+        }
+
+        setF(5.5, 'normal');
+        doc.setTextColor(80);
+        doc.text('CHAVE DE ACESSO', bcX + bcW / 2, y + 20, { align: 'center' });
+        doc.setTextColor(0);
+        setF(5.5, 'bold');
+        const fk = formatAccessKey(nfe.chaveAcesso);
+        // Split into 2 lines if needed
+        if (fk.length > 30) {
+          const mid = Math.ceil(fk.length / 2);
+          const sp = fk.lastIndexOf(' ', mid);
+          doc.text(fk.substring(0, sp), bcX + bcW / 2, y + 24, { align: 'center' });
+          doc.text(fk.substring(sp + 1), bcX + bcW / 2, y + 27.5, { align: 'center' });
+        } else {
+          doc.text(fk, bcX + bcW / 2, y + 25, { align: 'center', maxWidth: bcW - 4 });
+        }
+      }
+
+      setF(5, 'normal');
+      doc.setTextColor(80);
+      doc.text('Consulta em www.nfe.fazenda.gov.br/portal', bcX + bcW / 2, y + 32, { align: 'center' });
+      doc.setTextColor(0);
+
+      if (nfe.protocolo && nfe.protocolo.nProt) {
+        setF(5, 'normal');
+        doc.setTextColor(80);
+        doc.text('PROTOCOLO DE AUTORIZA\u00C7\u00C3O', bcX + bcW / 2, y + 35.5, { align: 'center' });
+        doc.setTextColor(0);
+        setF(5.5, 'bold');
+        doc.text(nfe.protocolo.nProt + ' ' + formatDate(nfe.protocolo.dhRecbto) + ' ' + formatTime(nfe.protocolo.dhRecbto),
+          bcX + bcW / 2, y + 38.5, { align: 'center' });
+      }
+
+      y += HH;
+
+      // ======= NATURE + PROTOCOL (h=10) =======
+      labeledBox(X0, y, 140, 10, 'NATUREZA DA OPERA\u00C7\u00C3O', nfe.natOp, { fs: 8 });
+      const protTxt = nfe.protocolo && nfe.protocolo.nProt
+        ? nfe.protocolo.nProt + ' - ' + formatDate(nfe.protocolo.dhRecbto) + ' ' + formatTime(nfe.protocolo.dhRecbto)
+        : '';
+      labeledBox(X0 + 140, y, 60, 10, 'PROTOCOLO DE AUTORIZA\u00C7\u00C3O DE USO', protTxt, { fs: 6.5 });
+      y += 10;
+
+      // ======= EMITTER DETAILS (h=10) =======
+      labeledBox(X0, y, 70, 10, 'INSCRI\u00C7\u00C3O ESTADUAL', nfe.emit.IE);
+      labeledBox(X0 + 70, y, 65, 10, 'INSCRI\u00C7\u00C3O ESTADUAL DO SUBST. TRIB.', nfe.emit.IEST);
+      labeledBox(X0 + 135, y, 65, 10, 'CNPJ', formatCNPJ(nfe.emit.CNPJ));
+      y += 10;
+
+      // ======= RECIPIENT (h=28) =======
+      y = sectionLabel(X0, y, CW, 'DESTINAT\u00C1RIO / REMETENTE');
+      const rh = 8;
+
+      labeledBox(X0, y, 140, rh, 'NOME / RAZ\u00C3O SOCIAL', nfe.dest.xNome);
+      const destDoc = nfe.dest.CNPJ ? formatCNPJ(nfe.dest.CNPJ) : formatCPF(nfe.dest.CPF);
+      labeledBox(X0 + 140, y, 35, rh, 'CNPJ / CPF', destDoc);
+      labeledBox(X0 + 175, y, 25, rh, 'DATA EMISS\u00C3O', formatDate(nfe.dhEmi));
+      y += rh;
+
+      const destAddr = [nfe.dest.ender.xLgr, nfe.dest.ender.nro].filter(Boolean).join(', ');
+      labeledBox(X0, y, 115, rh, 'ENDERE\u00C7O', destAddr);
+      labeledBox(X0 + 115, y, 35, rh, 'BAIRRO / DISTRITO', nfe.dest.ender.xBairro || '');
+      labeledBox(X0 + 150, y, 25, rh, 'CEP', formatCEP(nfe.dest.ender.CEP));
+      labeledBox(X0 + 175, y, 25, rh, 'DATA SA\u00CDDA/ENT.', formatDate(nfe.dhSaiEnt));
+      y += rh;
+
+      labeledBox(X0, y, 80, rh, 'MUNIC\u00CDPIO', nfe.dest.ender.xMun || '');
+      labeledBox(X0 + 80, y, 35, rh, 'FONE / FAX', formatPhone(nfe.dest.ender.fone));
+      labeledBox(X0 + 115, y, 10, rh, 'UF', nfe.dest.ender.UF || '', { align: 'center' });
+      labeledBox(X0 + 125, y, 50, rh, 'INSCRI\u00C7\u00C3O ESTADUAL', nfe.dest.IE || '');
+      labeledBox(X0 + 175, y, 25, rh, 'HORA SA\u00CDDA', formatTime(nfe.dhSaiEnt));
+      y += rh;
+
+      // ======= TAX CALCULATION (h=20) =======
+      y = sectionLabel(X0, y, CW, 'C\u00C1LCULO DO IMPOSTO');
+      const tw = CW / 6;
+      const th = 8;
+
+      labeledBox(X0, y, tw, th, 'BASE DE C\u00C1LC. DO ICMS', fmtNumZ(nfe.totais.vBC), { align: 'right' });
+      labeledBox(X0 + tw, y, tw, th, 'VALOR DO ICMS', fmtNumZ(nfe.totais.vICMS), { align: 'right' });
+      labeledBox(X0 + 2*tw, y, tw, th, 'BASE DE C\u00C1LC. ICMS S.T.', fmtNumZ(nfe.totais.vBCST), { align: 'right' });
+      labeledBox(X0 + 3*tw, y, tw, th, 'VALOR DO ICMS SUBST.', fmtNumZ(nfe.totais.vST), { align: 'right' });
+      labeledBox(X0 + 4*tw, y, tw, th, 'V. TOTAL PRODUTOS', fmtNumZ(nfe.totais.vProd), { align: 'right' });
+      labeledBox(X0 + 5*tw, y, CW - 5*tw, th, 'VALOR DO FRETE', fmtNumZ(nfe.totais.vFrete), { align: 'right' });
+      y += th;
+
+      labeledBox(X0, y, tw, th, 'VALOR DO SEGURO', fmtNumZ(nfe.totais.vSeg), { align: 'right' });
+      labeledBox(X0 + tw, y, tw, th, 'DESCONTO', fmtNumZ(nfe.totais.vDesc), { align: 'right' });
+      labeledBox(X0 + 2*tw, y, tw, th, 'OUTRAS DESP. ACESS\u00D3RIAS', fmtNumZ(nfe.totais.vOutro), { align: 'right' });
+      labeledBox(X0 + 3*tw, y, tw, th, 'VALOR TOTAL DO IPI', fmtNumZ(nfe.totais.vIPI), { align: 'right' });
+      labeledBox(X0 + 4*tw, y, tw, th, 'V. APROX. TRIBUTOS', fmtNumZ(nfe.totais.vTotTrib), { align: 'right' });
+      labeledBox(X0 + 5*tw, y, CW - 5*tw, th, 'VALOR TOTAL DA NF-e', fmtNumZ(nfe.totais.vNF), { align: 'right', bold: true });
+      y += th;
+
+      // ======= TRANSPORT (h=28) =======
+      y = sectionLabel(X0, y, CW, 'TRANSPORTADOR / VOLUMES TRANSPORTADOS');
+      const trh = 8;
+
+      const modFreteMap = { '0':'0-Emitente', '1':'1-Dest./Rem.', '2':'2-Terceiros', '3':'3-Pr\u00F3prio Rem.', '4':'4-Pr\u00F3prio Dest.', '9':'9-Sem Frete' };
+
+      labeledBox(X0, y, 75, trh, 'RAZ\u00C3O SOCIAL', nfe.transp.transporta.xNome || '');
+      labeledBox(X0 + 75, y, 28, trh, 'FRETE POR CONTA', modFreteMap[nfe.transp.modFrete] || nfe.transp.modFrete || '', { fs: 6 });
+      labeledBox(X0 + 103, y, 27, trh, 'C\u00D3DIGO ANTT', nfe.transp.veicTransp.RNTC || '');
+      labeledBox(X0 + 130, y, 25, trh, 'PLACA DO VE\u00CDCULO', nfe.transp.veicTransp.placa || '');
+      labeledBox(X0 + 155, y, 10, trh, 'UF', nfe.transp.veicTransp.UF || '', { align: 'center' });
+      const trDoc = nfe.transp.transporta.CNPJ ? formatCNPJ(nfe.transp.transporta.CNPJ) : formatCPF(nfe.transp.transporta.CPF);
+      labeledBox(X0 + 165, y, 35, trh, 'CNPJ / CPF', trDoc);
+      y += trh;
+
+      labeledBox(X0, y, 100, trh, 'ENDERE\u00C7O', nfe.transp.transporta.xEnder || '');
+      labeledBox(X0 + 100, y, 55, trh, 'MUNIC\u00CDPIO', nfe.transp.transporta.xMun || '');
+      labeledBox(X0 + 155, y, 10, trh, 'UF', nfe.transp.transporta.UF || '', { align: 'center' });
+      labeledBox(X0 + 165, y, 35, trh, 'INSCRI\u00C7\u00C3O ESTADUAL', nfe.transp.transporta.IE || '');
+      y += trh;
+
+      labeledBox(X0, y, 33, trh, 'QUANTIDADE', nfe.transp.vol.qVol || '');
+      labeledBox(X0 + 33, y, 37, trh, 'ESP\u00C9CIE', nfe.transp.vol.esp || '');
+      labeledBox(X0 + 70, y, 35, trh, 'MARCA', nfe.transp.vol.marca || '');
+      labeledBox(X0 + 105, y, 30, trh, 'NUMERA\u00C7\u00C3O', nfe.transp.vol.nVol || '');
+      labeledBox(X0 + 135, y, 33, trh, 'PESO BRUTO', nfe.transp.vol.pesoB ? fmtNum(nfe.transp.vol.pesoB, 3) : '', { align: 'right' });
+      labeledBox(X0 + 168, y, 32, trh, 'PESO L\u00CDQUIDO', nfe.transp.vol.pesoL ? fmtNum(nfe.transp.vol.pesoL, 3) : '', { align: 'right' });
+      y += trh;
+
+    } else {
+      // Continuation page header
+      setF(8, 'bold');
+      doc.text('DANFE - Continua\u00E7\u00E3o', X0, y + 5);
+      setF(7, 'normal');
+      doc.text('NF-e N\u00BA ' + formatNNF(nfe.nNF) + '  S\u00E9rie ' + (nfe.serie || '1') + '  FL ' + currentPage + '/' + totalPages, X0, y + 9);
+      doc.setLineWidth(0.2);
+      doc.line(X0, y + 11, XE, y + 11);
+      y += 14;
+    }
+
+    // ======= PRODUCTS TABLE =======
+    y = sectionLabel(X0, y, CW, 'DADOS DOS PRODUTOS / SERVI\u00C7OS');
+
+    // Column definitions
+    const cols = [
+      { label: 'C\u00D3DIGO', w: 14, align: 'left' },
+      { label: 'DESCRI\u00C7\u00C3O DO PRODUTO / SERVI\u00C7O', w: 52, align: 'left' },
+      { label: 'NCM/SH', w: 13, align: 'center' },
+      { label: 'CST', w: 8, align: 'center' },
+      { label: 'CFOP', w: 9, align: 'center' },
+      { label: 'UN', w: 9, align: 'center' },
+      { label: 'QTD', w: 14, align: 'right' },
+      { label: 'VL UNIT\u00C1RIO', w: 16, align: 'right' },
+      { label: 'VL TOTAL', w: 16, align: 'right' },
+      { label: 'BC ICMS', w: 14, align: 'right' },
+      { label: 'VL ICMS', w: 12, align: 'right' },
+      { label: 'VL IPI', w: 11, align: 'right' },
+      { label: 'AL\u00CDQ ICMS', w: 7, align: 'right' },
+      { label: 'AL\u00CDQ IPI', w: 5, align: 'right' },
+    ];
+    // total w = 14+52+13+8+9+9+14+16+16+14+12+11+7+5 = 200 ✓
+
+    // Draw column headers
+    const phH = PROD_HEADER_H;
+    let cx = X0;
+    doc.setFillColor(245, 245, 245);
+    doc.rect(X0, y, CW, phH, 'FD');
+    setF(4.2, 'bold');
+    doc.setTextColor(0);
+    cols.forEach(col => {
+      doc.rect(cx, y, col.w, phH);
+      doc.text(col.label, cx + col.w / 2, y + phH / 2 + 0.8, { align: 'center', maxWidth: col.w - 0.5 });
+      cx += col.w;
+    });
+    y += phH;
+
+    // Bottom limit for products
+    const prodBottomLimit = PH - M - ADDI_H;
+
+    // Draw product rows
+    setF(5, 'normal');
+    doc.setTextColor(0);
+
+    const maxRows = currentPage === 1 ? maxRowsPage1 : maxRowsPageN;
+    let rowsDrawn = 0;
+
+    while (prodIdx < totalProducts && y + PROD_ROW_H <= prodBottomLimit) {
+      const prod = nfe.produtos[prodIdx];
+      cx = X0;
+
+      const rowValues = [
+        prod.cProd,
+        prod.xProd,
+        prod.NCM,
+        prod.orig + prod.CST,
+        prod.CFOP,
+        prod.uCom,
+        fmtNum(prod.qCom, 4),
+        fmtNum(prod.vUnCom, 4),
+        fmtNum(prod.vProd),
+        fmtNum(prod.vBC),
+        fmtNum(prod.vICMS),
+        fmtNum(prod.vIPI),
+        fmtNum(prod.pICMS),
+        fmtNum(prod.pIPI),
+      ];
+
+      // Alternate row background
+      if (prodIdx % 2 === 1) {
+        doc.setFillColor(250, 250, 252);
+        doc.rect(X0, y, CW, PROD_ROW_H, 'F');
+      }
+
+      setF(4.5, 'normal');
+      cols.forEach((col, ci) => {
+        doc.setDrawColor(200);
+        doc.rect(cx, y, col.w, PROD_ROW_H);
+        doc.setDrawColor(0);
+
+        let text = rowValues[ci] || '';
+        const maxTextW = col.w - 1;
+
+        // Truncate text if needed
+        if (doc.getTextWidth(text) > maxTextW) {
+          while (text.length > 1 && doc.getTextWidth(text + '\u2026') > maxTextW) {
+            text = text.slice(0, -1);
+          }
+          text += '\u2026';
+        }
+
+        const ty = y + PROD_ROW_H - 0.7;
+        if (col.align === 'right') {
+          doc.text(text, cx + col.w - 0.5, ty, { align: 'right' });
+        } else if (col.align === 'center') {
+          doc.text(text, cx + col.w / 2, ty, { align: 'center' });
+        } else {
+          doc.text(text, cx + 0.5, ty);
+        }
+        cx += col.w;
+      });
+
+      y += PROD_ROW_H;
+      prodIdx++;
+      rowsDrawn++;
+    }
+
+    // Fill remaining rows with empty cells
+    doc.setDrawColor(200);
+    while (y + PROD_ROW_H <= prodBottomLimit) {
+      cx = X0;
+      cols.forEach(col => {
+        doc.rect(cx, y, col.w, PROD_ROW_H);
+        cx += col.w;
+      });
+      y += PROD_ROW_H;
+    }
+    doc.setDrawColor(0);
+
+    // Close products area border
+    // Draw outer border around products area
+    doc.setLineWidth(0.2);
+    doc.rect(X0, y, CW, prodBottomLimit - y);
+    y = prodBottomLimit;
+
+    // ======= ADDITIONAL INFO =======
+    y = sectionLabel(X0, y, CW, 'DADOS ADICIONAIS');
+    const addBodyH = ADDI_H - 4;
+    const infCplW = 130;
+    const fiscoW = CW - infCplW;
+
+    doc.rect(X0, y, infCplW, addBodyH);
+    setF(5, 'normal');
+    doc.setTextColor(100);
+    doc.text('INFORMA\u00C7\u00D5ES COMPLEMENTARES', X0 + 1, y + 3);
+    doc.setTextColor(0);
+    setF(4.5, 'normal');
+    if (nfe.infCpl) {
+      const lines = doc.splitTextToSize(nfe.infCpl, infCplW - 3);
+      const maxInfoLines = Math.floor((addBodyH - 5) / 2.8);
+      doc.text(lines.slice(0, maxInfoLines), X0 + 1, y + 5.5);
+    }
+
+    doc.rect(X0 + infCplW, y, fiscoW, addBodyH);
+    setF(5, 'normal');
+    doc.setTextColor(100);
+    doc.text('RESERVADO AO FISCO', X0 + infCplW + 1, y + 3);
+    doc.setTextColor(0);
+    if (nfe.infAdFisco) {
+      setF(4.5, 'normal');
+      const fLines = doc.splitTextToSize(nfe.infAdFisco, fiscoW - 3);
+      doc.text(fLines.slice(0, 5), X0 + infCplW + 1, y + 5.5);
+    }
+  }
+
+  // Draw all pages
+  drawPage();
+  while (prodIdx < totalProducts) {
+    doc.addPage();
+    currentPage++;
+    drawPage();
+  }
+
+  return doc;
+}
+
+// =============================================================================
+// UI CONTROLLER
+// =============================================================================
+
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.getElementById('fileInput');
+const statusEl = document.getElementById('status');
+const infoCard = document.getElementById('infoCard');
+const infoGrid = document.getElementById('infoGrid');
+const generateBtn = document.getElementById('generateBtn');
+const resetBtn = document.getElementById('resetBtn');
+const pasteToggleBtn = document.getElementById('pasteToggleBtn');
+const pasteArea = document.getElementById('pasteArea');
+const xmlTextarea = document.getElementById('xmlTextarea');
+const pasteBtn = document.getElementById('pasteBtn');
+
+let currentNFe = null;
+
+function showStatus(msg, type) {
+  statusEl.innerHTML = (type === 'error' ? '⚠️ ' : '✅ ') + msg;
+  statusEl.className = 'status visible ' + type;
+}
+
+function hideStatus() {
+  statusEl.className = 'status';
+}
+
+function showInfo(nfe) {
+  infoGrid.innerHTML = '';
+  const items = [
+    ['N\u00FAmero', formatNNF(nfe.nNF), false],
+    ['S\u00E9rie', nfe.serie || '1', false],
+    ['Emitente', nfe.emit.xNome, false],
+    ['CNPJ Emitente', formatCNPJ(nfe.emit.CNPJ), true],
+    ['Destinat\u00E1rio', nfe.dest.xNome || 'N\u00E3o informado', false],
+    ['CNPJ/CPF Dest.', nfe.dest.CNPJ ? formatCNPJ(nfe.dest.CNPJ) : formatCPF(nfe.dest.CPF), true],
+    ['Data Emiss\u00E3o', formatDate(nfe.dhEmi), false],
+    ['Itens', nfe.produtos.length + ' produto(s)', false],
+    ['Chave de Acesso', formatAccessKey(nfe.chaveAcesso), true, true],
+    ['Valor Total', 'R$ ' + fmtNumZ(nfe.totais.vNF), false, false, true],
+  ];
+
+  items.forEach(([label, value, mono, fullWidth, highlight]) => {
+    const div = document.createElement('div');
+    div.className = 'info-item' + (fullWidth ? ' full-width' : '');
+    const spanClass = mono ? ' class="mono"' : (highlight ? ' class="highlight"' : '');
+    div.innerHTML = '<label>' + label + '</label><span' + spanClass + '>' + value + '</span>';
+    infoGrid.appendChild(div);
+  });
+
+  infoCard.classList.add('visible');
+}
+
+function processXML(xmlString) {
+  try {
+    currentNFe = parseNFe(xmlString);
+    showStatus('XML processado com sucesso!', 'success');
+    showInfo(currentNFe);
+    uploadArea.style.display = 'none';
+    pasteArea.classList.remove('visible');
+    document.querySelector('.paste-toggle').style.display = 'none';
+  } catch (err) {
+    showStatus('Erro ao processar XML: ' + err.message, 'error');
+    infoCard.classList.remove('visible');
+    currentNFe = null;
+  }
+}
+
+function handleFile(file) {
+  if (!file) return;
+  if (!file.name.toLowerCase().endsWith('.xml')) {
+    showStatus('Por favor, selecione um arquivo XML v\u00E1lido.', 'error');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => processXML(e.target.result);
+  reader.onerror = () => showStatus('Erro ao ler o arquivo.', 'error');
+  reader.readAsText(file);
+}
+
+function resetUI() {
+  currentNFe = null;
+  infoCard.classList.remove('visible');
+  hideStatus();
+  uploadArea.style.display = '';
+  document.querySelector('.paste-toggle').style.display = '';
+  fileInput.value = '';
+  xmlTextarea.value = '';
+}
+
+// Event listeners
+uploadArea.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+uploadArea.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadArea.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+
+pasteToggleBtn.addEventListener('click', () => {
+  pasteArea.classList.toggle('visible');
+  pasteToggleBtn.textContent = pasteArea.classList.contains('visible') ? 'ocultar \u00E1rea de cola' : 'ou cole o conte\u00FAdo XML';
+});
+
+pasteBtn.addEventListener('click', () => {
+  const xml = xmlTextarea.value.trim();
+  if (!xml) {
+    showStatus('Cole o conte\u00FAdo XML antes de processar.', 'error');
+    return;
+  }
+  processXML(xml);
+});
+
+generateBtn.addEventListener('click', () => {
+  if (!currentNFe) {
+    showStatus('Nenhum XML carregado.', 'error');
+    return;
+  }
+  try {
+    generateBtn.disabled = true;
+    generateBtn.innerHTML = '\u23F3 Gerando PDF...';
+
+    setTimeout(() => {
+      try {
+        const doc = generateDANFE(currentNFe);
+        const nf = (currentNFe.nNF || '').padStart(9, '0');
+        doc.save('DANFE_' + nf + '.pdf');
+        showStatus('DANFE gerado com sucesso! Verifique seus downloads.', 'success');
+      } catch (err) {
+        showStatus('Erro ao gerar PDF: ' + err.message, 'error');
+        console.error(err);
+      } finally {
+        generateBtn.disabled = false;
+        generateBtn.innerHTML = '\uD83D\uDCE5 Gerar DANFE em PDF';
+      }
+    }, 50);
+  } catch (err) {
+    showStatus('Erro inesperado: ' + err.message, 'error');
+    generateBtn.disabled = false;
+    generateBtn.innerHTML = '\uD83D\uDCE5 Gerar DANFE em PDF';
+  }
+});
+
+resetBtn.addEventListener('click', resetUI);
+</script>
+</body>
+</html>
