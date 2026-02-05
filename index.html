@@ -3,8 +3,53 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Conversor NF-e XML → DANFE PDF</title>
+<title>Conversor NF-e XML para DANFE PDF - Gratuito e Online | Gerar DANFE</title>
+
+<!-- SEO Meta Tags -->
+<meta name="description" content="Conversor gratuito de XML de Nota Fiscal Eletrônica (NF-e) para DANFE em PDF. Gere o Documento Auxiliar da Nota Fiscal Eletrônica 100% online, sem instalação. Processa múltiplos arquivos simultaneamente.">
+<meta name="keywords" content="DANFE, NF-e, nota fiscal eletrônica, XML, PDF, conversor, gerador DANFE, documento auxiliar, nota fiscal PDF, converter XML NF-e">
+<meta name="author" content="Conversor DANFE">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://danfe.bia.lu">
+
+<!-- Open Graph (Facebook/WhatsApp/LinkedIn) -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Conversor NF-e XML para DANFE PDF - Gratuito e Online">
+<meta property="og:description" content="Converta XML de Nota Fiscal Eletrônica para DANFE em PDF gratuitamente. 100% no navegador, sem enviar dados para servidores.">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:site_name" content="Conversor DANFE">
+<meta property="og:url" content="https://danfe.bia.lu">
+
+<!-- Twitter Cards -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Conversor NF-e XML para DANFE PDF">
+<meta name="twitter:description" content="Gere DANFE em PDF a partir do XML da NF-e. Gratuito, online e seguro.">
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<!-- Schema.org JSON-LD -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Conversor NF-e para DANFE PDF",
+  "description": "Ferramenta online gratuita para converter XML de Nota Fiscal Eletrônica (NF-e) em DANFE PDF",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "BRL"
+  },
+  "featureList": [
+    "Conversão de XML NF-e para PDF",
+    "Geração de DANFE",
+    "Processamento de múltiplos arquivos",
+    "100% offline no navegador"
+  ],
+  "inLanguage": "pt-BR"
+}
+</script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&display=swap');
 
@@ -375,6 +420,16 @@
     color: var(--text-muted);
     font-size: 12px;
   }
+  .footer p {
+    margin-bottom: 8px;
+  }
+  .footer-seo {
+    font-size: 11px;
+    line-height: 1.6;
+    max-width: 600px;
+    margin: 12px auto 0;
+    opacity: 0.8;
+  }
 
   @media (max-width: 600px) {
     .info-grid { grid-template-columns: 1fr; }
@@ -390,11 +445,12 @@
 </head>
 <body>
 <div class="container">
-  <div class="header">
+  <main>
+  <header class="header">
     <div class="icon">📄</div>
     <h1>NF-e → <span>DANFE</span></h1>
     <p>Conversor de XML da Nota Fiscal Eletrônica para DANFE em PDF — 100% no navegador</p>
-  </div>
+  </header>
 
   <div class="upload-area" id="uploadArea">
     <input type="file" id="fileInput" accept=".xml" multiple>
@@ -434,9 +490,15 @@
     </div>
   </div>
 
-  <div class="footer">
-    Processamento 100% local — nenhum dado é enviado para servidores.
-  </div>
+  </main>
+
+  <footer class="footer">
+    <p>Processamento 100% local — nenhum dado é enviado para servidores.</p>
+    <p class="footer-seo">
+      Conversor gratuito de XML de Nota Fiscal Eletrônica (NF-e) para DANFE em PDF.
+      Gere o Documento Auxiliar da Nota Fiscal Eletrônica de forma rápida e segura.
+    </p>
+  </footer>
 </div>
 
 <script>
